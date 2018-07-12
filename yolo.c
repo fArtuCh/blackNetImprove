@@ -1,9 +1,11 @@
+#include "sys/time.h"
 #include "network.h"
 #include "detection_layer.h"
 #include "cost_layer.h"
 #include "utils.h"
 #include "parser.h"
 #include "box.h"
+
 
 #ifdef OPENCV
 #include "opencv2/highgui/highgui_c.h"
@@ -276,11 +278,48 @@ void validate_yolo_recall(char *cfgfile, char *weightfile)
     int correct = 0;
     int proposals = 0;
     float avg_iou = 0;
+    
+    
+    //--------------------------------DODANE-----------------------------------//
+    FILE *Benchmark;
+    Benchmark = fopen("Benchmark.txt", "w");	
+    char buffer[15];			
+    char napis[]="(validate_yolo_recall) Pomiar czasu dla resize_image:";
+    struct timeval start, stop;
+	double secs = 0;
+	//-------------------------------------------------------------------------
+
 
     for(i = 0; i < m; ++i){
         char *path = paths[i];
         image orig = load_image_color(path, 0, 0);
-        image sized = resize_image(orig, net.w, net.h);
+        
+            
+        fputc( 13 , Benchmark);// New line	
+		fprintf(Benchmark, napis);
+		
+        gettimeofday(&start, NULL);
+        
+        //-----------------------TIME TO MEASURE -----------------------------//    
+        image sized = resize_image(orig, net.w, net.h); // Resize image 
+        //____________________________________________________________________//
+        
+        gettimeofday(&stop, NULL);
+        
+        secs = (double)(stop.tv_usec - start.tv_usec) / 1000000 + (double)(stop.tv_sec - start.tv_sec);
+
+        for(i=0;i<11;i+=1)
+			buffer[i]='-';
+		fprintf(Benchmark, buffer);	
+		fputc( ':' , Benchmark);
+		fputc( 32 , Benchmark);// New line
+		snprintf(buffer, sizeof buffer, "%lf", secs);
+		fprintf(Benchmark, buffer);	
+		fputc( 's' , Benchmark);// New line	
+		fputc( 13 , Benchmark);// New line				
+        
+        //________________________Koniec_ DODANE____________________________________//	
+        
         char *id = basecfg(path);
         float *predictions = network_predict(net, sized.data);
         convert_yolo_detections(predictions, classes, l.n, square, side, 1, 1, thresh, probs, boxes, 1);
@@ -319,6 +358,10 @@ void validate_yolo_recall(char *cfgfile, char *weightfile)
         free_image(orig);
         free_image(sized);
     }
+	
+	
+	fclose(Benchmark);
+	
 }
 
 void test_yolo(char *cfgfile, char *weightfile, char *filename, float thresh)
@@ -334,11 +377,21 @@ void test_yolo(char *cfgfile, char *weightfile, char *filename, float thresh)
     clock_t time;
     char buff[256];
     char *input = buff;
-    int j;
+    int j,i;
     float nms=.5;
     box *boxes = calloc(l.side*l.side*l.n, sizeof(box));
     float **probs = calloc(l.side*l.side*l.n, sizeof(float *));
     for(j = 0; j < l.side*l.side*l.n; ++j) probs[j] = calloc(l.classes, sizeof(float *));
+    
+     //--------------------------------DODANE-----------------------------------//
+    FILE *Benchmark;
+    Benchmark = fopen("Benchmark.txt", "a");	
+    char buffer[15];
+    char napis[]="(test_yolo) Pomiar czasu dla resize_image:";
+ 
+    struct timeval start, stop;
+	double secs = 0;
+
     while(1){
         if(filename){
             strncpy(input, filename, 256);
@@ -350,7 +403,36 @@ void test_yolo(char *cfgfile, char *weightfile, char *filename, float thresh)
             strtok(input, "\n");
         }
         image im = load_image_color(input,0,0);
-        image sized = resize_image(im, net.w, net.h);
+        
+        
+        fputc( 13 , Benchmark);// New line	
+		fprintf(Benchmark, napis);	
+
+        
+        gettimeofday(&start, NULL);
+
+        //-----------------------TIME TO MEASURE -----------------------------//    
+        image sized = resize_image(im, net.w, net.h);   // Resize_image 1
+        //____________________________________________________________________//
+        
+        gettimeofday(&stop, NULL);
+        
+        secs = (double)(stop.tv_usec - start.tv_usec) / 1000000 + (double)(stop.tv_sec - start.tv_sec);
+
+        for(i=0;i<11;i+=1)
+			buffer[i]='-';
+		fprintf(Benchmark, buffer);	
+		fputc( ':' , Benchmark);
+		fputc( 32 , Benchmark);// New line
+		snprintf(buffer, sizeof buffer, "%lf", secs);
+		fprintf(Benchmark, buffer);	
+		fputc( 's' , Benchmark);// New line	
+		fputc( 13 , Benchmark);// New line	
+		
+        
+        //________________________Koniec_ DODANE____________________________________//	
+        
+        
         float *X = sized.data;
 
 
@@ -377,6 +459,9 @@ void test_yolo(char *cfgfile, char *weightfile, char *filename, float thresh)
 #endif
         if (filename) break;
     }
+    
+    
+    fclose(Benchmark);
 }
 
 /*
